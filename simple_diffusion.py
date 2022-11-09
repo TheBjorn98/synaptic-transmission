@@ -6,7 +6,7 @@ import matplotlib.animation as anim
 def setup_system_matrix():
     pass
 
-def A(u):
+def A(u):  # Deprecated
     Ni, Nj = u.shape
     # hi, hj = 1 / Ni, 1 / Nj
     i = np.arange(1, Ni)
@@ -19,7 +19,7 @@ def A(u):
 
     return Ni * (u[n] + u[s] - 2 * u[c]) + Nj * (u[e] + u[w] - 2 * u[c])
 
-def jacobi(u0, f, N_iter):
+def jacobi(u0, f, N_iter):  # Deprecated
     Ni, Nj = u0.shape
     hi, hj = 1 / Ni, 1 / Nj
     i = np.arange(1, Ni-1)
@@ -37,6 +37,7 @@ def jacobi(u0, f, N_iter):
     
     return u
 
+# TODO Turn this into a matrix, not a function call
 def stencil(us, i, dt, dr, dz, D):
     c = 1 - 2 * D * dt * (1/dr**2 + 1/dz**2)
     n = 2 * D * dt * (-1/(2 * i * dr**2) + 1/dr**2)
@@ -46,7 +47,7 @@ def stencil(us, i, dt, dr, dz, D):
 
     return c*us[1, 1] + n*us[0, 1] + s*us[2, 1] + w*us[1, 0] + e*us[1, 2]
 
-
+# TODO Construct a matrix to apply to a vector representing the domain?
 def timestep_system(u, N_iter, dt, dr, dz, D):
     Ni, Nj = u.shape
     space_time = np.zeros((N_iter, Ni, Nj))
