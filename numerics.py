@@ -1,4 +1,5 @@
 import numpy as np
+from scipy.integrate import RK45
 import scipy.sparse as sp
 from scipy.sparse import linalg as spla
 
@@ -53,7 +54,20 @@ def update_diffusion(system_matrix, grid_vector):
 def update_bcs(system_matrix, grid_vector):
     pass
 
-def update_reaction(system_matrix, grid_vector):
+def update_reaction(system_matrix, grid_vector, dt, method=RK45):
+    """
+    k1, k2 = 1, 1
+
+    s0 = [0, 0, 0]
+
+    def f(x):
+        Nt = -k1 * x[0] * x[1] + k2 * x[2]
+        return np.array([Nt, Nt, -Nt])
+
+    
+    return method(f, s0 ).step()
+    """
+
     pass
 
 def store_results(grid):

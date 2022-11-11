@@ -99,6 +99,7 @@ if __name__ == "__main__":
     # plt.show()
 
     plot_type = "anim"
+    print(u)
 
     if plot_type == "anim":
         fig = plt.figure()
