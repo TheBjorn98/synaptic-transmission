@@ -1,0 +1,61 @@
+grid((Nr, Nth, Nz)): Discretized grid in the directions r, theta and z
+
+def get_directions(Nr, Nth, Nz):
+	ir = np.arange(1, Nr)
+	ith = np.arange(1, Nth)
+	iz = np.arange(1, Nz)
+
+	p_c = np.ix_(ir, ith, iz)
+
+	# Longitudinal direction, z (up and down / vertical)
+	d_up = np.ix_(ir, ith, iz+1)
+	d_down = np.ix_(ir, ith, iz-1)
+
+	# Radial direction, r (out / in)
+	d_out = np.ix_(ir+1, ith, iz)
+	d_in = np.ix_(ir-1, ith, iz)
+
+	# Tangential direction, theta (clockwise / anti-clockwise)
+	d_aclw = np.ix_(ir, ith+1, iz)
+	d_clw = np.ix_(ir, ith-1, iz)
+
+	return d_up, d_down, d_out, d_in, d_aclw, d_clw
+
+=== General Idea: ===
+
+1. Initialize grid as 3D-array for N
+2. Strech out grid as vector
+3. Create 7-band-diagonal system matrix from diffusion terms 
+	* Using np.arange and np.zeros to create diagonals
+	* Zero strategic entries in the diagonals
+	* Scipy.sparse.diags
+	* System size: (25)^3 -> 15625, (32)^3 -> 32768, (64)^3 -> 262144
+4. Initialize vectors for R and C
+5. Apply initial conditions
+6. Loop for all timesteps
+	1. Do C-N step for diffusion by inverting system matrix ++
+		* Either by scipy.sparse.linalg.solve
+		* Or by scipy.sparse.cg
+	2. Apply BC's for the diffusion
+	3. Do RK4 step to get next balance of R and C at terminal
+	4. Apply effects of change in R and D at terminal
+	5. Ensure conservation of mass?
+	6. Go to nest step
+7. Repackage vector to 3D array
+8. Dump results to file
+
+
+=== Support functions ===
+
+fnc_name				signature				comment
+---------------------------------------------------------------
+unpack_grid: 			grid -> vector
+pack_vector: 			vector -> grid
+
+setup_system_matrix: 	(Nr, Nth, Nz) -> mx
+
+update_diffusion: 		vector -> vector 		(apply CN step)
+update_bc: 				vector -> vector      
+update_reaction: 		vector -> vector		(apply RK step)
+
+store_results			grid -> void			(np.save ++)
