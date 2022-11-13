@@ -9,6 +9,45 @@ def grid_to_vector(grid):
 def vector_to_grid(gridvec, Nr, Nth, Nz):
     return gridvec.reshape((Nr, Nth, Nz))
 
+def RK4_step(f, t_i, w_i, h):
+    ''' 
+    One step using Runge_kutta
+    Intput: 
+        w_i: [angle theta, frequency ohmega], 
+        t_i: time
+        h: step length
+        f: function to be solved
+    Return: next function value
+    '''
+    k1 = f(t_i,w_i)
+    k2 = f(t_i + h/2, w_i + h*k1/2)
+    k3 = f(t_i + h/2, w_i + h*k2/2)
+    k4 = f(t_i+ h, w_i + h*k3)
+
+    return t_i + h,  w_i + h/6 *(k1+ 2*k2 + 2*k3 + k4)
+
+def reaction_ode(s, k1=1, k2=1):
+    
+    Nt = -k1 * s[0] * s[1] + k2 * s[2] 
+
+    return np.array([Nt,Nt,-Nt])
+
+def update_reaction_state(grid_vec, s0, dt):
+    
+    
+    """
+    Need to implement code to get N by summing over the reaction area in grid_vec
+    """
+
+    #RK4 step:
+    k1 = reaction_ode(s0)
+    k2 = reaction_ode(s0 + dt*k1/2)
+    k3 = reaction_ode(s0 + dt*k2/2)
+    k4 = reaction_ode(s0 + dt*k3)
+
+    return s0 + dt/6 *(k1+ 2*k2 + 2*k3 + k4)
+
+
 def setup_system_matrix(Nr, Nth, Nz, dt):
     dr, dth, dz = 1/Nr, 1/Nth, 1/Nz
     print(f"{dr = }, {dth = }, {dz = }")
@@ -47,26 +86,15 @@ def setup_system_matrix(Nr, Nth, Nz, dt):
 
 
 
+def update_diffusion(system_matrix, grid_vector, sigma=0):
 
-def update_diffusion(system_matrix, grid_vector):
     pass
 
 def update_bcs(system_matrix, grid_vector):
     pass
 
-def update_reaction(system_matrix, grid_vector, dt, method=RK45):
-    """
-    k1, k2 = 1, 1
-
-    s0 = [0, 0, 0]
-
-    def f(x):
-        Nt = -k1 * x[0] * x[1] + k2 * x[2]
-        return np.array([Nt, Nt, -Nt])
-
+def update_reaction(s, method=RK45):
     
-    return method(f, s0 ).step()
-    """
 
     pass
 
