@@ -2,6 +2,7 @@ import numpy as np
 from scipy.integrate import RK45
 import scipy.sparse as sp
 from scipy.sparse import linalg as spla
+import numba
 
 def grid_to_vector(grid):
     return grid.flatten()
@@ -9,43 +10,37 @@ def grid_to_vector(grid):
 def vector_to_grid(gridvec, Nr, Nth, Nz):
     return gridvec.reshape((Nr, Nth, Nz))
 
-def RK4_step(f, t_i, w_i, h):
-    ''' 
-    One step using Runge_kutta
-    Intput: 
-        w_i: [angle theta, frequency ohmega], 
-        t_i: time
-        h: step length
-        f: function to be solved
-    Return: next function value
-    '''
-    k1 = f(t_i,w_i)
-    k2 = f(t_i + h/2, w_i + h*k1/2)
-    k3 = f(t_i + h/2, w_i + h*k2/2)
-    k4 = f(t_i+ h, w_i + h*k3)
-
-    return t_i + h,  w_i + h/6 *(k1+ 2*k2 + 2*k3 + k4)
-
-def reaction_ode(s, k1=1, k2=1):
+def RK4_step(f, t, s, h):
     
+    k1 = f(t, s)
+    k2 = f(t+ h/2, s + h*k1/2)
+    k3 = f(t + h/2, s + h*k2/2)
+    k4 = f(t+ h, s + h*k3)
+
+    return t + h,  s + h/6 *(k1+ 2*k2 + 2*k3 + k4)
+
+def reaction_ode(t, s, k1=1, k2=1):
+
     Nt = -k1 * s[0] * s[1] + k2 * s[2] 
 
     return np.array([Nt,Nt,-Nt])
 
-def update_reaction_state(grid_vec, s0, dt):
-    
+def update_reaction_state(grid_vec, t0, s0, dt):
+
+    s = s0.copy()
     
     """
     Need to implement code to get N by summing over the reaction area in grid_vec
     """
 
     #RK4 step:
-    k1 = reaction_ode(s0)
-    k2 = reaction_ode(s0 + dt*k1/2)
-    k3 = reaction_ode(s0 + dt*k2/2)
-    k4 = reaction_ode(s0 + dt*k3)
+    """ 
+    method = RK45(reaction_ode, t0=t0, y0=s0, t_bound=t0+dt)
 
-    return s0 + dt/6 *(k1+ 2*k2 + 2*k3 + k4)
+    method.step()
+    """
+
+    return RK4_step(reaction_ode, t0, s0, dt)
 
 
 def setup_system_matrix(Nr, Nth, Nz, dt):
