@@ -124,6 +124,8 @@ def setup_system_matrix(Nr, Nth, Nz, dt):
 def setup_diffusion_matrix(Nr, Nth, Nz, dt):
     dr, dth, dz = 1/Nr, 1/Nth, 1/Nz
 
+    alpha_r, alpha_th, alpha_z = 1, 10, 1
+
     def at(i, j, k):
         return i + j*Nr + k*Nr*Nth
     
@@ -135,40 +137,58 @@ def setup_diffusion_matrix(Nr, Nth, Nz, dt):
     for i in range(Nr):
         for j in range(Nth):
             for k in range(Nz):
-                A[at(i,j,k), at(i,j,k)] = -(2/dz**2 + 2/dth**2 + 2/dr**2)      # Center
-                if i > 0:
-                    A[at(i,j,k), at(i-1,j,k)] = 1 / 2 / dr                      # North
-                if j > 0 and i > 0: 
-                    A[at(i,j,k), at(i,j-1,k)] = 1 / 2 / dth**2 / (i) / dr         # West
-                if k > 0:
-                    A[at(i,j,k), at(i,j,k-1)] = 1 / 2 / dz**2                   # Down
-                if i < Nr-1:
-                    A[at(i,j,k), at(i+1,j,k)] = 1 / 2 / dr                      # South
-                if j < Nth-1 and i > 0:
-                    A[at(i,j,k), at(i,j+1,k)] = 1 / 2 / dth**2 / (i) / dr         # East
-                if k < Nz-1:
-                    A[at(i,j,k), at(i,j,k+1)] = 1 / 2 / dz**2                   # Up
+                A[at(i,j,k), at(i,j,k)] = -(alpha_z * 2/dz**2 + alpha_th * 2/dth**2 + alpha_r * 2/dr**2)      # Center, c
+                # if i > 0:
+                try:
+                    A[at(i,j,k), at(i-1,j,k)] = alpha_r / 2 / dr                      # North, r
+                except:
+                    print("north")
+                # if j > 0:
+                try:
+                    A[at(i,j,k), at(i,j-1,k)] = alpha_th / 2 / dth**2 / (i+1) / dr         # West, th
+                except:
+                    print("west")
+                # if k > 0:
+                try:
+                    A[at(i,j,k), at(i,j,k-1)] = alpha_z / 2 / dz**2                   # Down, z
+                except:
+                    print("down")
+                # if i < Nr-1:
+                try:
+                    A[at(i,j,k), at(i+1,j,k)] = alpha_r / 2 / dr                   # South, r
+                except:
+                    print("south")
+                # if j < Nth-1:
+                try:
+                    A[at(i,j,k), at(i,j+1,k)] = alpha_th / 2 / dth**2 / (i+1) / dr         # East, th
+                except:
+                    print("east")
+                # if k < Nz-1:
+                try:
+                    A[at(i,j,k), at(i,j,k+1)] = alpha_z / 2 / dz**2                   # Up, z
+                except:
+                    print("up")
     
     # Fix angular dependency
     for i in range(Nr):
         for k in range(Nz):
-            if k < Nz-1 and i > 0:
+            if k < Nz-1:
                 A[at(i, Nth-1, k), at(i, Nth, k)] = 0
-                A[at(i, Nth-1, k), at(i, 0, k)] = 1 / 2 / dth**2 / (i) / dr
-            if k > 0 and i > 0:
+                A[at(i, Nth-1, k), at(i, 0, k)] = alpha_th / 2 / dth**2 / (i+1) / dr
+            if k > 0:
                 A[at(i, 0, k), at(i, -1, k)] = 0
-                A[at(i, 0, k), at(i, Nth-1, k)] = 1 / 2 / dth**2 / (i) / dr
+                A[at(i, 0, k), at(i, Nth-1, k)] = alpha_th / 2 / dth**2 / (i+1) / dr
     
     # Fix no-flux condition in z-direction
     a, b = 1, 1/2 + np.sqrt(3)/3
     for i in range(Nr):
         for j in range(Nth):
             # Almost border layers
-            A[at(i,j, 0), at(i,j, 1)]       += a / b / dz**2 - 1 / 2 / dz**2
-            A[at(i,j, Nz-1), at(i,j, Nz-2)] += a / b / dz**2 - 1 / 2 / dz**2
+            A[at(i,j, 0), at(i,j, 1)]       += alpha_z * (a / b / dz**2 - 1 / 2 / dz**2)
+            A[at(i,j, Nz-1), at(i,j, Nz-2)] += alpha_z * (a / b / dz**2 - 1 / 2 / dz**2)
             # Border layers
-            A[at(i,j,0), at(i,j,0)]       -= a / b / dz**2 - 2 / dz**2
-            A[at(i,j,Nz-1), at(i,j,Nz-1)] -= a / b / dz**2 - 2 / dz**2
+            A[at(i,j,0), at(i,j,0)]       -= alpha_z * (a / b / dz**2 - 2 / dz**2)
+            A[at(i,j,Nz-1), at(i,j,Nz-1)] -= alpha_z * (a / b / dz**2 - 2 / dz**2)
 
     # Fix angular dependency in the first and last layers
     # A[at(0, 0, 0), at(0, Nth-1, 0)] = 1 / 2 / dth**2 / dr
@@ -185,12 +205,12 @@ def setup_diffusion_matrix(Nr, Nth, Nz, dt):
 
 
     # # Fix r=0 entry (sum over r=r1)
-    # for k in range(Nz):
-    #     for j in range(Nth):
-    #         A[at(0, j, k), :] = 0
-    #         A[at(0, j, k), at(1, j, k)] = 1
-            # for _j in range(Nth):
-                # A[at(0, j, k), at(1, _j, k)] = dth / 2 / np.pi
+    for k in range(Nz):
+        for j in range(Nth):
+            A[at(0, j, k), :] = 0
+            # A[at(0, j, k), at(0, j, k)] = 1
+            for _j in range(Nth):
+                A[at(0, j, k), at(1, _j, k)] = dth / alpha_th
 
 
     return A.tocsc()
@@ -212,9 +232,9 @@ def store_results(grid):
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
 
-    # Nr, Nth, Nz = 4, 4, 4
+    Nr, Nth, Nz = 4, 4, 4
     # Nr, Nth, Nz = 8, 8, 8
-    Nr, Nth, Nz = 16, 16, 16
+    # Nr, Nth, Nz = 16, 16, 16
 
     dt = 1e-4
     A_imp, A_exp = setup_system_matrix(Nr, Nth, Nz, .01)
@@ -227,7 +247,7 @@ if __name__ == "__main__":
     grid = np.zeros((Nr, Nth, Nz))
     # grid[1, :, 0] = 1
     # grid[0, :, 0] = 1
-    grid[0, Nth//2, 0] = 1
+    grid[:, Nth//2, 0] = 1
 
     I = sp.eye(Nr*Nth*Nz, format="csc")
     D = 1/2
