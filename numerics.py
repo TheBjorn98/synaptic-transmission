@@ -1,12 +1,47 @@
 import numpy as np
+from scipy.integrate import RK45
 import scipy.sparse as sp
 from scipy.sparse import linalg as spla
+import numba
 
 def grid_to_vector(grid):
     return grid.flatten()
 
 def vector_to_grid(gridvec, Nr, Nth, Nz):
     return gridvec.reshape((Nr, Nth, Nz))
+
+def RK4_step(f, t, s, h):
+    
+    k1 = f(t, s)
+    k2 = f(t+ h/2, s + h*k1/2)
+    k3 = f(t + h/2, s + h*k2/2)
+    k4 = f(t+ h, s + h*k3)
+
+    return t + h,  s + h/6 *(k1+ 2*k2 + 2*k3 + k4)
+
+def reaction_ode(t, s, k1=1, k2=1):
+
+    Nt = -k1 * s[0] * s[1] + k2 * s[2] 
+
+    return np.array([Nt,Nt,-Nt])
+
+def update_reaction_state(grid_vec, t0, s0, dt):
+
+    s = s0.copy()
+    
+    """
+    Need to implement code to get N by summing over the reaction area in grid_vec
+    """
+
+    #RK4 step:
+    """ 
+    method = RK45(reaction_ode, t0=t0, y0=s0, t_bound=t0+dt)
+
+    method.step()
+    """
+
+    return RK4_step(reaction_ode, t0, s0, dt)
+
 
 def setup_system_matrix(Nr, Nth, Nz, dt):
     dr, dth, dz = 1/Nr, 1/Nth, 1/Nz
@@ -195,14 +230,16 @@ def setup_diffusion_matrix(Nr, Nth, Nz, dt):
 
     return A.tocsc()
 
+def update_diffusion(system_matrix, grid_vector, sigma=0):
 
-def update_diffusion(system_matrix, grid_vector):
     pass
 
 def update_bcs(system_matrix, grid_vector):
     pass
 
-def update_reaction(system_matrix, grid_vector):
+def update_reaction(s, method=RK45):
+    
+
     pass
 
 def store_results(grid):

@@ -66,6 +66,7 @@ def timestep_system(u, N_iter, dt, dr, dz, D):
         # space_time[k, :, -1] = space_time[0, :, -1]
         # space_time[k, 0, :] = space_time[0, 0, :]
         space_time[k, :, :] /= np.sum(space_time[k, :, :]) / total_mass
+
     
     return space_time
 
@@ -99,6 +100,7 @@ if __name__ == "__main__":
     # plt.show()
 
     plot_type = "anim"
+    print(u)
 
     if plot_type == "anim":
         fig = plt.figure()
