@@ -37,7 +37,7 @@ def setup_system_matrix(Nr, Nth, Nz, dt):
     down_grid = vector_to_grid(down_diag, Nr, Nth, Nz)
 
     # # Decoupling blocks and layers
-    north_grid[0, :, :] = 0
+    # north_grid[0, :, :] = 0
     # for i in range(sys_size - 1):
         # if (i+1) % Nr == 0:
             # north_diag[i] = 0
@@ -49,15 +49,15 @@ def setup_system_matrix(Nr, Nth, Nz, dt):
             # east_diag[i] = 0
 
     # Enforcing Neumann BCs at z=0 and z=L
-    up_grid[:, :, 0] *= -(1 / (1/2 + np.sqrt(3)/3))
-    down_grid[:, :, 0] *= -(1 / (1/2 + np.sqrt(3)/3))
-    down_grid[:, :, 1] += (1 / (1/2 + np.sqrt(3)/3)) * (dt / dz**2)
-    down_grid[:, :, 1] += (1 / (1/2 + np.sqrt(3)/3)) * (dt / dz**2)
+    # up_grid[:, :, 0] *= -(1 / (1/2 + np.sqrt(3)/3))
+    # down_grid[:, :, 0] *= -(1 / (1/2 + np.sqrt(3)/3))
+    # down_grid[:, :, 1] += (1 / (1/2 + np.sqrt(3)/3)) * (dt / dz**2)
+    # down_grid[:, :, 1] += (1 / (1/2 + np.sqrt(3)/3)) * (dt / dz**2)
     
-    up_grid[:, :, -1] *= (1 / (1/2 + np.sqrt(3)/3))
-    down_grid[:, :, -1] *= (1 / (1/2 + np.sqrt(3)/3))
-    up_grid[:, :, -2] -= (1 / (1/2 + np.sqrt(3)/3)) * (dt / dz**2)
-    down_grid[:, :, -2] -= (1 / (1/2 + np.sqrt(3)/3)) * (dt / dz**2)
+    # up_grid[:, :, -1] *= (1 / (1/2 + np.sqrt(3)/3))
+    # down_grid[:, :, -1] *= (1 / (1/2 + np.sqrt(3)/3))
+    # up_grid[:, :, -2] -= (1 / (1/2 + np.sqrt(3)/3)) * (dt / dz**2)
+    # down_grid[:, :, -2] -= (1 / (1/2 + np.sqrt(3)/3)) * (dt / dz**2)
     # up_diag[0:Nr*Nth] *= (1 / (1/2 + np.sqrt(3)/3))
     # down_diag[0:Nr*Nth] *= (1 / (1/2 + np.sqrt(3)/3))
     # up_diag[-1:-Nr*Nth] *= (1 / (1/2 + np.sqrt(3)/3))
@@ -68,13 +68,13 @@ def setup_system_matrix(Nr, Nth, Nz, dt):
         # center_diag[(Nr-1):Nth()]
 
     # Enforce BC at the edge of the cylinder
-    center_grid[Nr-1, :, :] = 1
-    north_grid[Nr-1, :, :] = 0
-    south_grid[Nr-1, :, :] = 0
-    west_grid[Nr-1, :, :] = 0
-    east_grid[Nr-1, :, :] = 0
-    up_grid[Nr-1, :, :] = 0
-    down_grid[Nr-1, :, :] = 0
+    # center_grid[Nr-1, :, :] = 1
+    # north_grid[Nr-1, :, :] = 0
+    # south_grid[Nr-1, :, :] = 0
+    # west_grid[Nr-1, :, :] = 0
+    # east_grid[Nr-1, :, :] = 0
+    # up_grid[Nr-1, :, :] = 0
+    # down_grid[Nr-1, :, :] = 0
 
     # center_grid[0, :, :] = 0
     # north_grid[0, :, :] = 0
@@ -121,6 +121,35 @@ def setup_system_matrix(Nr, Nth, Nz, dt):
     return sys_mx_implicit, sys_mx_explicit
 
 
+def setup_diffusion_matrix(Nr, Nth, Nz):
+    dr, dth, dz = 1/Nr, 1/Nth, 1/Nz
+
+    def at(i, j, k):
+        return i + j*Nr + k*Nr*Nth
+    
+    A = np.zeros((Nr*Nth*Nz, Nr*Nth*Nz))
+
+
+    def dirichlet(i, j, k):
+        A[at(i, j, k), :] = 0
+        A[:, at(i, j, k)] = 0
+        A[at(i, j, k), at(i, j, k)] = 1
+
+    for i in range(Nr):
+        for j in range(Nth):
+            for k in range(Nz):
+                try:
+                    A[at(i,j,k), at(i,j,k)] = 2/dz**2 + 2/dth**2 + 2/dr**2      # Center
+                    A[at(i,j,k), at(i-1,j,k)] = 1 / 2 / dr                      # North
+                    A[at(i,j,k), at(i+1,j,k)] = 1 / 2 / dr                      # South
+                    A[at(i,j,k), at(i,j-1,k)] = 1 / 2 / dth**2 / i / dr         # West
+                    A[at(i,j,k), at(i,j+1,k)] = 1 / 2 / dth**2 / i / dr         # East
+                    A[at(i,j,k), at(i,j,k-1)] = 1 / 2 / dz**2                   # Down
+                    A[at(i,j,k), at(i,j,k+1)] = 1 / 2 / dz**2                   # Up
+                except:
+                    pass
+
+    return A
 
 
 def update_diffusion(system_matrix, grid_vector):
@@ -141,33 +170,43 @@ if __name__ == "__main__":
 
     Nr, Nth, Nz = 4, 4, 4
 
-    grid = np.zeros((Nr, Nth, Nz))
-    grid[0, :, 0] = 1
+    A_imp, A_exp = setup_system_matrix(Nr, Nth, Nz, .01)
+    A = np.eye(Nr*Nth*Nz) - .01 / 2 * setup_diffusion_matrix(Nr, Nth, Nz)
 
-    A_imp, A_exp = setup_system_matrix(Nr, Nth, Nz, .001)
-
-    img = plt.imshow(A_imp.todense(), cmap="Reds")
-    plt.colorbar(img)
-    plt.show()    
-    
-    grid_vec = grid_to_vector(grid)
-    zero_vec = np.copy(grid_vec)
-    iter_one = A_exp @ grid_vec
-    iter_one = spla.spsolve(A_imp, iter_one)
-    iter_one = vector_to_grid(iter_one, Nr, Nth, Nz)
-
-    fig = plt.figure(figsize=(12,9))
-    axs = [fig.add_subplot(2, 4, i+1) for i in range(8)]
-
-    for i in range(Nz):
-        axs[i].imshow(grid[:, :, i])
-        axs[i].set_title(f"Depth: z={i+1}")
-        axs[i].set_ylabel("r")
-        axs[i].set_xlabel("theta")
-        axs[i+4].imshow(iter_one[:, :, i])
-        axs[i+4].set_title(f"Depth: z={i+1}")
-
+    fig = plt.figure()
+    ax1 = fig.add_subplot(1, 2, 1)
+    ax1.imshow(A_exp.todense())
+    ax2 = fig.add_subplot(1, 2, 2)
+    ax2.imshow(A)
     plt.show()
+
+    # grid = np.zeros((Nr, Nth, Nz))
+    # grid[0, :, 0] = 1
+
+    # A_imp, A_exp = setup_system_matrix(Nr, Nth, Nz, .001)
+
+    # img = plt.imshow(A_imp.todense(), cmap="Reds")
+    # plt.colorbar(img)
+    # plt.show()    
+    
+    # grid_vec = grid_to_vector(grid)
+    # zero_vec = np.copy(grid_vec)
+    # iter_one = A_exp @ grid_vec
+    # iter_one = spla.spsolve(A_imp, iter_one)
+    # iter_one = vector_to_grid(iter_one, Nr, Nth, Nz)
+
+    # fig = plt.figure(figsize=(12,9))
+    # axs = [fig.add_subplot(2, 4, i+1) for i in range(8)]
+
+    # for i in range(Nz):
+    #     axs[i].imshow(grid[:, :, i])
+    #     axs[i].set_title(f"Depth: z={i+1}")
+    #     axs[i].set_ylabel("r")
+    #     axs[i].set_xlabel("theta")
+    #     axs[i+4].imshow(iter_one[:, :, i])
+    #     axs[i+4].set_title(f"Depth: z={i+1}")
+
+    # plt.show()
 
 
     
