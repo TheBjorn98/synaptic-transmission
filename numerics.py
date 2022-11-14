@@ -1,12 +1,15 @@
 import numpy as np
+from scipy.integrate import RK45
 import scipy.sparse as sp
 from scipy.sparse import linalg as spla
+import numba
 
 def grid_to_vector(grid):
     return grid.flatten()
 
 def vector_to_grid(gridvec, Nr, Nth, Nz):
     return gridvec.reshape((Nr, Nth, Nz))
+
 
 def setup_system_matrix(Nr, Nth, Nz, dt):
     dr, dth, dz = 1/Nr, 1/Nth, 1/Nz
@@ -215,14 +218,15 @@ def setup_diffusion_matrix(Nr, Nth, Nz, dt):
 
     return A.tocsc()
 
+def update_diffusion(system_matrix, grid_vector, sigma=0):
 
-def update_diffusion(system_matrix, grid_vector):
     pass
 
 def update_bcs(system_matrix, grid_vector):
     pass
 
-def update_reaction(system_matrix, grid_vector):
+def update_reaction(s, method=RK45):
+    
     pass
 
 def store_results(grid):
