@@ -121,35 +121,79 @@ def setup_system_matrix(Nr, Nth, Nz, dt):
     return sys_mx_implicit, sys_mx_explicit
 
 
-def setup_diffusion_matrix(Nr, Nth, Nz):
+def setup_diffusion_matrix(Nr, Nth, Nz, dt):
     dr, dth, dz = 1/Nr, 1/Nth, 1/Nz
 
     def at(i, j, k):
         return i + j*Nr + k*Nr*Nth
     
-    A = np.zeros((Nr*Nth*Nz, Nr*Nth*Nz))
+    # A = np.zeros((Nr*Nth*Nz, Nr*Nth*Nz))
+    # A = sp.csc_matrix((Nr*Nth*Nz, Nr*Nth*Nz))
+    A = sp.lil_matrix((Nr*Nth*Nz, Nr*Nth*Nz))
 
-
-    def dirichlet(i, j, k):
-        A[at(i, j, k), :] = 0
-        A[:, at(i, j, k)] = 0
-        A[at(i, j, k), at(i, j, k)] = 1
-
+    # Set up adjacent blocks
     for i in range(Nr):
         for j in range(Nth):
             for k in range(Nz):
-                try:
-                    A[at(i,j,k), at(i,j,k)] = 2/dz**2 + 2/dth**2 + 2/dr**2      # Center
+                A[at(i,j,k), at(i,j,k)] = -(2/dz**2 + 2/dth**2 + 2/dr**2)      # Center
+                if i > 0:
                     A[at(i,j,k), at(i-1,j,k)] = 1 / 2 / dr                      # North
-                    A[at(i,j,k), at(i+1,j,k)] = 1 / 2 / dr                      # South
-                    A[at(i,j,k), at(i,j-1,k)] = 1 / 2 / dth**2 / i / dr         # West
-                    A[at(i,j,k), at(i,j+1,k)] = 1 / 2 / dth**2 / i / dr         # East
+                if j > 0 and i > 0: 
+                    A[at(i,j,k), at(i,j-1,k)] = 1 / 2 / dth**2 / (i) / dr         # West
+                if k > 0:
                     A[at(i,j,k), at(i,j,k-1)] = 1 / 2 / dz**2                   # Down
+                if i < Nr-1:
+                    A[at(i,j,k), at(i+1,j,k)] = 1 / 2 / dr                      # South
+                if j < Nth-1 and i > 0:
+                    A[at(i,j,k), at(i,j+1,k)] = 1 / 2 / dth**2 / (i) / dr         # East
+                if k < Nz-1:
                     A[at(i,j,k), at(i,j,k+1)] = 1 / 2 / dz**2                   # Up
-                except:
-                    pass
+    
+    # Fix angular dependency
+    for i in range(Nr):
+        for k in range(Nz):
+            if k < Nz-1 and i > 0:
+                A[at(i, Nth-1, k), at(i, Nth, k)] = 0
+                A[at(i, Nth-1, k), at(i, 0, k)] = 1 / 2 / dth**2 / (i) / dr
+            if k > 0 and i > 0:
+                A[at(i, 0, k), at(i, -1, k)] = 0
+                A[at(i, 0, k), at(i, Nth-1, k)] = 1 / 2 / dth**2 / (i) / dr
+    
+    # Fix no-flux condition in z-direction
+    a, b = 1, 1/2 + np.sqrt(3)/3
+    for i in range(Nr):
+        for j in range(Nth):
+            # Almost border layers
+            A[at(i,j, 0), at(i,j, 1)]       += a / b / dz**2 - 1 / 2 / dz**2
+            A[at(i,j, Nz-1), at(i,j, Nz-2)] += a / b / dz**2 - 1 / 2 / dz**2
+            # Border layers
+            A[at(i,j,0), at(i,j,0)]       -= a / b / dz**2 - 2 / dz**2
+            A[at(i,j,Nz-1), at(i,j,Nz-1)] -= a / b / dz**2 - 2 / dz**2
 
-    return A
+    # Fix angular dependency in the first and last layers
+    # A[at(0, 0, 0), at(0, Nth-1, 0)] = 1 / 2 / dth**2 / dr
+
+    
+    A *= dt / 2
+
+    # # Fix edge of cylinder BC (edge = 0)
+    # for j in range(Nth):
+        # for k in range(Nz):
+            # A[at(Nr-1, j, k), :] = 0
+            # A[:, at(Nr-1, j, k)] = 0
+            # A[at(Nr-1, j, k), at(Nr-1, j, k)] = 1
+
+
+    # # Fix r=0 entry (sum over r=r1)
+    # for k in range(Nz):
+    #     for j in range(Nth):
+    #         A[at(0, j, k), :] = 0
+    #         A[at(0, j, k), at(1, j, k)] = 1
+            # for _j in range(Nth):
+                # A[at(0, j, k), at(1, _j, k)] = dth / 2 / np.pi
+
+
+    return A.tocsc()
 
 
 def update_diffusion(system_matrix, grid_vector):
@@ -168,46 +212,56 @@ def store_results(grid):
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
 
-    Nr, Nth, Nz = 4, 4, 4
+    # Nr, Nth, Nz = 4, 4, 4
+    # Nr, Nth, Nz = 8, 8, 8
+    Nr, Nth, Nz = 16, 16, 16
 
+    dt = 1e-4
     A_imp, A_exp = setup_system_matrix(Nr, Nth, Nz, .01)
-    A = np.eye(Nr*Nth*Nz) - .01 / 2 * setup_diffusion_matrix(Nr, Nth, Nz)
+    A = setup_diffusion_matrix(Nr, Nth, Nz, dt)
 
-    fig = plt.figure()
-    ax1 = fig.add_subplot(1, 2, 1)
-    ax1.imshow(A_exp.todense())
-    ax2 = fig.add_subplot(1, 2, 2)
-    ax2.imshow(A)
+    img = plt.imshow(A.todense() != 0)
+    plt.colorbar(img)
     plt.show()
 
-    # grid = np.zeros((Nr, Nth, Nz))
+    grid = np.zeros((Nr, Nth, Nz))
+    # grid[1, :, 0] = 1
     # grid[0, :, 0] = 1
+    grid[0, Nth//2, 0] = 1
 
-    # A_imp, A_exp = setup_system_matrix(Nr, Nth, Nz, .001)
+    I = sp.eye(Nr*Nth*Nz, format="csc")
+    D = 1/2
+    left =  (I - D * A)
+    right = (I + D * A)
 
-    # img = plt.imshow(A_imp.todense(), cmap="Reds")
-    # plt.colorbar(img)
-    # plt.show()    
+    _grid = grid.copy()
+    gv = grid_to_vector(_grid)
+    print(left.shape)
+    print(right.shape)
+    print(gv.shape)
+    print(np.sum(gv))
+    for i in range(10):
+        interm = right @ gv
+        print(interm.shape)
+        # gv = np.linalg.solve(left, interm)
+        gv = spla.spsolve(left, interm.T)
+        print(np.sum(gv))
     
-    # grid_vec = grid_to_vector(grid)
-    # zero_vec = np.copy(grid_vec)
-    # iter_one = A_exp @ grid_vec
-    # iter_one = spla.spsolve(A_imp, iter_one)
-    # iter_one = vector_to_grid(iter_one, Nr, Nth, Nz)
+    sol_grid = vector_to_grid(gv, Nr, Nth, Nz)
 
-    # fig = plt.figure(figsize=(12,9))
-    # axs = [fig.add_subplot(2, 4, i+1) for i in range(8)]
+    fig = plt.figure()
+    axs = [fig.add_subplot(2, 4, i+1) for i in range(8)]
 
-    # for i in range(Nz):
-    #     axs[i].imshow(grid[:, :, i])
-    #     axs[i].set_title(f"Depth: z={i+1}")
-    #     axs[i].set_ylabel("r")
-    #     axs[i].set_xlabel("theta")
-    #     axs[i+4].imshow(iter_one[:, :, i])
-    #     axs[i+4].set_title(f"Depth: z={i+1}")
+    for i in range(4):
+        img = axs[i].imshow(grid[:, :, i])#, vmin=0, vmax=1)
+        img_sol = axs[i+4].imshow(sol_grid[:, :, i])#, vmin=0, vmax=1)
+        plt.colorbar(img, ax=axs[i])
+        plt.colorbar(img_sol, ax=axs[i+4])
+        axs[i].set_title(f"z = {i}")
+        axs[i+4].set_title(f"z = {i}")
 
+
+    plt.show()
+
+    # img = plt.imshow(A)
     # plt.show()
-
-
-    
-    
