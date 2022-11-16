@@ -127,7 +127,8 @@ def setup_diffusion_matrix(Nr, Nth, Nz, dt):
     alpha_r, alpha_th, alpha_z = 1, 10, 1
 
     def at(i, j, k):
-        return i + j*Nr + k*Nr*Nth
+        # return i + j*Nr + k*Nr*Nth
+        return k + j*Nz + k*Nz*Nth
     
     # A = np.zeros((Nr*Nth*Nz, Nr*Nth*Nz))
     # A = sp.csc_matrix((Nr*Nth*Nz, Nr*Nth*Nz))
