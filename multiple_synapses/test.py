@@ -14,7 +14,7 @@ def main():
     
     #adding some cells
     p = 0.1
-    for _ in range(500):
+    for _ in range(50):
         if(np.random.uniform(0,1) <= p):
             cellspace.insertCell(radius=dx, N0=np.random.normal(N0, 2)) #adding a initially active cell
         else:
