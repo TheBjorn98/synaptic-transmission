@@ -95,7 +95,6 @@ def setup_system_matrix(Nr, Nth, Nz, dt):
     up_diag = grid_to_vector(up_grid)[Nr*Nth:]
     down_diag = grid_to_vector(down_grid)[:-Nr*Nth]
     
-
     print(f"""
     Diagonal lengths:
         center: {center_diag.shape}
@@ -195,7 +194,6 @@ def setup_diffusion_matrix(Nr, Nth, Nz, dt):
 
     # Fix angular dependency in the first and last layers
     # A[at(0, 0, 0), at(0, Nth-1, 0)] = 1 / 2 / dth**2 / dr
-
     
     A *= dt / 2
 

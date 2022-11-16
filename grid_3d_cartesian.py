@@ -79,7 +79,7 @@ if __name__ == "__main__":
             ax.clear()
             ax.imshow(g[:, :, i], vmin=0, vmax=1)
             
-
+            
         axs[0].set_title(f"t = {i * dt:.4f}")
         return axs
 
