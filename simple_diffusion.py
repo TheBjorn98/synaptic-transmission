@@ -52,7 +52,10 @@ def timestep_system(u, N_iter, dt, dr, dz, D):
     Ni, Nj = u.shape
     space_time = np.zeros((N_iter, Ni, Nj))
 
-    space_time[0, :, :] = u
+    #space_time[0, :, :] = u¨
+
+    space_time[:, ]
+
     total_mass = np.sum(u)
 
     for k in range(1, N_iter):
@@ -100,7 +103,6 @@ if __name__ == "__main__":
     # plt.show()
 
     plot_type = "anim"
-    print(u)
 
     if plot_type == "anim":
         fig = plt.figure()
