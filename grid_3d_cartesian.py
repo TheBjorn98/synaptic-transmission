@@ -1,74 +1,77 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from reaction import update_reaction
 import scipy.sparse as sp
 import scipy.sparse.linalg as spla
 from time import time
 
-def grid_to_vec(grid):
-    return grid.flatten()
 
-def vec_to_grid(gv, Nx, Ny, Nz):
-    return gv.reshape(Nx, Ny, Nz)
-
-def build_diffusion_matrix(N_space, alphas):
-
-    Nx, Ny, Nz = N_space, N_space, N_space
-    dx, dy, dz = 1/Nx, 1/Ny, 1/Nz
+def build_diffusion_matrix(N, alphas):
     ax, ay, az = alphas
+    A = sp.lil_matrix((N**3, N**3))
 
     def at(i, j, k):
-        # return i + j*Nx + k*Nx*Ny
-        return k + j*Nz + i*Ny*Nz
+        return i + j*N + k*N**2
 
-    sys_size = Nx*Ny*Nz
-    A = sp.lil_matrix((sys_size, sys_size))
+    diag = [ax, ay, az, -2 * (ax + ay + az), az, ay, ax]
+    offset = [-N**2, -N, -1, 0, 1, N, N**2]
 
-    t0 = time()
-    for i in range(Nx):
-        for j in range(Ny):
-            for k in range(Nz):
-                A[at(i, j, k), at(i, j, k)] = -2 * (ax/dx**2 + ay/dy**2 + az/dz**2)
-                if i > 0:
-                    A[at(i, j, k), at(i-1, j, k)] = ax/dx**2
-                if j > 0:
-                    A[at(i, j, k), at(i, j-1, k)] = ay/dy**2
-                if k > 0:
-                    A[at(i, j, k), at(i, j, k-1)] = az/dz**2
-                if i < Nx-1:
-                    A[at(i, j, k), at(i+1, j, k)] = ax/dx**2
-                if j < Ny-1:
-                    A[at(i, j, k), at(i, j+1, k)] = ay/dy**2
-                if k < Nz-1:
-                    A[at(i, j, k), at(i, j, k+1)] = az/dz**2
-    t1 = time()
-    print(f"Setting diagonals took {t1-t0:.3f} seconds.")
+    for (d, o) in zip(diag, offset):
+        A.setdiag(d, k=o)
+    
+    for i in range(N):
+        for j in range(N):
+            for k in range(N):
+                if i == 0 and k > 0:  # North
+                    A[at(i, j, k), at(i-1, j, k)] = 0
+                if i == N-1 and k < N-2:  # South
+                    A[at(i, j, k), at(i+1, j, k)] = 0
+                if j == 0 and k > 0:  # West
+                    A[at(i, j, k), at(i, j-1, k)] = 0
+                if j == N-1 and k < N-2:  # East
+                    A[at(i, j, k), at(i, j+1, k)] = 0
+    
+    for i in range(N):
+        for j in range(N):
+            for k in range(N):
+                if i == 0:
+                    A[at(i, j, k), :] = 0
+                    A[at(i, j, k), at(i, j, k)] =  -az
+                    A[at(i, j, k), at(i+1, j, k)] = az
+                if j == 0:
+                    A[at(i, j, k), :] = 0
+                    A[at(i, j, k), at(i, j, k)] =  -ay
+                    A[at(i, j, k), at(i, j+1, k)] = ay
+                if k == 0:
+                    A[at(i, j, k), :] = 0
+                    A[at(i, j, k), at(i, j, k)] =  -ax
+                    A[at(i, j, k), at(i, j, k+1)] = ax
+                if i == N-1:
+                    A[at(i, j, k), :] = 0
+                    A[at(i, j, k), at(i, j, k)] =  -az
+                    A[at(i, j, k), at(i-1, j, k)] = az
+                if j == N-1:
+                    A[at(i, j, k), :] = 0
+                    A[at(i, j, k), at(i, j, k)] =  -ay
+                    A[at(i, j, k), at(i, j-1, k)] = ay
+                if k == N-1:
+                    A[at(i, j, k), :] = 0
+                    A[at(i, j, k), at(i, j, k)] =  -ax
+                    A[at(i, j, k), at(i, j, k-1)] = ax
 
-    for i in range(Nx):
-        for j in range(Ny):
-            A[at(i, j, 0), :] = 0
-            A[:, at(i, j, 0)] = 0
-            A[at(i, j, 0), at(i, j, 1)] = az / dz**2
-            A[at(i, j, Nz-1), :] = 0
-            A[:, at(i, j, Nz-1)] = 0
-            A[at(i, j, Nz-1), at(i, j, Nz-2)] = az / dz**2
-    t2 = time()
-    print(f"Setting BCs took {t2-t1:.3f} seconds.")
-
-    return A.tocsc()
+    return (A.tocsc() * N**3).T
 
 
-def update_diffusion(left_scheme_mx, right_scheme_mx , f_vec, grid_vector):
+def update_diffusion(left_scheme_mx, right_scheme_mx, grid_vector):
     """Performs one step of diffusion using the precomputed matrix for the scheme.
     The scheme: L @ u^{n+1} = R @ u^{n} + f
     Input:
         left_scheme_mx: Left matrix in the numerical scheme
         right_scheme_mx: Right matrix in the numerical scheme
-        f_vec: RHS from the discretized PDE 
         grid_vector: vector containing the grid to find the numerical solution on
     Returns:
         new_gv: updated grid vector after one iteration
     """
-
     if left_scheme_mx is None:
         return right_scheme_mx @ grid_vector
     elif right_scheme_mx is None:
@@ -76,6 +79,7 @@ def update_diffusion(left_scheme_mx, right_scheme_mx , f_vec, grid_vector):
     else:
         tmp = right_scheme_mx @ grid_vector
         return spla.cg(left_scheme_mx, tmp)[0]
+
 
 def iterate_system_cn(N_space, N_time, dt, initial_gv, alphas):
     t0 = time()
@@ -91,7 +95,7 @@ def iterate_system_cn(N_space, N_time, dt, initial_gv, alphas):
     t3 = time()
     
     for i in range(1, N_time):
-        gvs[i, :] = update_diffusion(CN_left, CN_right, 0, gvs[i-1, :])
+        gvs[i, :] = update_diffusion(CN_left, CN_right, gvs[i-1, :])
     
     t4 = time()
 
@@ -101,7 +105,8 @@ def iterate_system_cn(N_space, N_time, dt, initial_gv, alphas):
 
     return gvs
 
-def iterate_system_bw_euler(N_space, N_time, dt, initial_gv, alphas):
+def iterate_system_bw_euler(N_space, N_time, dt, initial_state, alphas, reaction_ode):
+    n_init, r_init, c_init = initial_state
     t0 = time()
     A = build_diffusion_matrix(N_space, alphas)
     I = sp.eye(N_space**3)
@@ -109,16 +114,32 @@ def iterate_system_bw_euler(N_space, N_time, dt, initial_gv, alphas):
     t1 = time()
     print(f"Building system took: {t1-t0:.3f} seconds.")
 
-    gvs = np.zeros((N_time, N_space**3))
-    gvs[0, :] = initial_gv
+    n_vecs = np.zeros((N_time, N_space**3))
+    r_vecs = np.zeros((N_time, N_space**2))
+    c_vecs = np.zeros((N_time, N_space**2))
+    n_vecs[0, :] = n_init
+    r_vecs[0, :] = r_init
+    c_vecs[0, :] = c_init
 
     t0 = time()
     for i in range(1, N_time):
-        gvs[i, :] = update_diffusion(bw_euler, None, None, gvs[i-1, :])
+        temp_state = update_diffusion(bw_euler, None, n_vecs[i-1, :])
+
+        n_terminal, r_new, c_new = update_reaction(
+            temp_state[N_space**3-N_space**2:], r_vecs[i-1, :], c_vecs[i-1, :],
+            dt, reaction_ode
+        )
+
+        print(np.sum([n_terminal]))
+
+        temp_state[N_space**3 - N_space**2:] = n_terminal[:]
+        n_vecs[i, :] = temp_state
+        r_vecs[i, :] = r_new
+        c_vecs[i, :] = c_new
 
     t1 = time()
     print(f"Iterating system took: {t1-t0:.3f} seconds.")
-    return gvs
+    return n_vecs, r_vecs, c_vecs
 
 
 if __name__ == "__main__":
@@ -132,10 +153,10 @@ if __name__ == "__main__":
 
     # g[Nx//2, Ny//2, Nz//2] = 10
     g[Nx//2, Ny//2, 1] = 1
-    g[:, :, 0] = 10
-    g[:, :, -1] = 10
+    # g[:, :, 0] = 10
+    # g[:, :, -1] = 10
     mass_correction = 2 * np.sum(g[:, :, 0])#+ np.sum(g[:, : -1])
-    gv = grid_to_vec(g)
+    gv = g.reshape((Nx*Ny*Nz))
 
     dt = 1e-4
     Lx, Ly, Lz = .22e-6, .22e-6, 15e-9
@@ -148,8 +169,8 @@ if __name__ == "__main__":
     ax, ay, az = ax/az, ay/az, az/az
     alphas = (ax, ay, az)
     T = Lz / D
-    Tf = 200*T
-    N_time = 2000
+    Tf = 100*T
+    N_time = 3000
     dt = Tf / N_time
 
     print(f"""
@@ -165,8 +186,8 @@ if __name__ == "__main__":
         dt = {dt:.3e}
     """)
 
-    gvs = iterate_system_cn(Nx, N_time, dt, gv, alphas)
-    # gvs = iterate_system_bw_euler(Nx, N_time, dt, gv, alphas)
+    # gvs = iterate_system_cn(Nx, N_time, dt, gv, alphas)
+    gvs = iterate_system_bw_euler(Nx, N_time, dt, gv, alphas)
 
 
     fig = plt.figure()
@@ -177,7 +198,7 @@ if __name__ == "__main__":
     print(plot_loc)
 
     def animate(i):
-        g = vec_to_grid(gvs[i, :], Nx, Ny, Nz)
+        g = gvs[i, :].reshape((Nx, Ny, Nz))
 
         for j, ax in enumerate(axs):
             ax.clear()
