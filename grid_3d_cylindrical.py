@@ -2,14 +2,12 @@ import numpy as np
 from scipy.integrate import RK45
 import scipy.sparse as sp
 from scipy.sparse import linalg as spla
-import numba
 
 def grid_to_vector(grid):
     return grid.flatten()
 
 def vector_to_grid(gridvec, Nr, Nth, Nz):
     return gridvec.reshape((Nr, Nth, Nz))
-
 
 def setup_system_matrix(Nr, Nth, Nz, dt):
     dr, dth, dz = 1/Nr, 1/Nth, 1/Nz
