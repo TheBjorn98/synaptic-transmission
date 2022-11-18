@@ -2,61 +2,52 @@ import numpy as np
 import matplotlib.pyplot as plt
 import scipy.sparse as sp
 import scipy.sparse.linalg as spla
-from time import time
 
-def build_diffusion_matrix(Nx, Ny, dt, alpha_x = 1, alpha_y = 1):
-    dx, dy = 1/Nx, 1/Ny
-
-    sys_size = Nx * Ny
-    A = sp.lil_matrix((sys_size, sys_size))
-    print(A.shape)
+def build_diffusion_matrix(N_space, alphas):
+    A = sp.lil_matrix((N_space**2, N_space**2))
+    ax, ay = alphas
 
     def at(i, j):
-        return i + Nx*j
-        # return j + Nx*i
+        return i + N_space*j
 
-    # Setting the 5-point stencil
-    for i in range(Nx):
-        for j in range(Ny):
-            A[at(i,j), at(i, j)] = -2 * ((alpha_x / dx**2) + (alpha_y / dy**2))
-            if i > 0:
-                A[at(i,j), at(i-1, j)] = alpha_x / dx**2
-            if j > 0:
-                A[at(i,j), at(i, j-1)] = alpha_x / dx**2
-            if i < Nx-1:
-                A[at(i,j), at(i+1, j)] = alpha_y / dy**2
-            if j < Ny-1:
-                A[at(i,j), at(i, j+1)] = alpha_y / dy**2
+    # diag = [1, 1, -2*(), 1, 1]
+    diag = [ax, ay, -2 * (ax + ay), ay, ax]
+    offset = [-N_space, -1, 0, 1, N_space]
 
-    # No-flux in y-direction
-    for i in range(Nx):
-        A[at(i, 0), :] = 0
-        A[:, at(i, 0)] = 0
-        A[at(i, 0), at(i, 1)] = alpha_y / dy**2
-        A[at(i, Ny-1), :] = 0
-        A[:, at(i, Ny-1)] = 0
-        A[at(i, Ny-1), at(i, Ny-2)] = alpha_y / dy**2
+    for (d, o) in zip(diag, offset):
+        A.setdiag(d, k=o)
 
-    # No-flux in x-direction
-    for j in range(Ny):
-        A[at(0, j), :] = 0
-        A[:, at(0, j)] = 0
-        A[at(0, j), at(1, j)] = alpha_x / dx**2
-        A[at(Nx-1 ,j), :] = 0
-        A[:, at(Nx-1 ,j)] = 0
-        A[at(Nx-1, j), at(Nx-2, j)] = alpha_x / dx**2
+    for i in range(N_space):
+        for j in range(N_space):
+            if i == 0 and j > 0:
+                A[at(i, j), at(i-1, j)] = 0
+            if i == N_space-1 and j < N_space-2:
+                A[at(i, j), at(i+1, j)] = 0
 
-    A[at(0, 0), :] = 0
-    A[at(Nx-1, 0), :] = 0
-    A[at(0, Ny-1), :] = 0
-    A[at(Ny-1, Ny-1), :] = 0
-    A[at(0, 0), at(0, 0)] = 1
-    A[at(Nx-1, 0), at(Nx-1, 0)] = 1
-    A[at(0, Ny-1), at(0, Ny-1)] = 1
-    A[at(Ny-1, Ny-1), at(Ny-1, Ny-1)] = 1
+    for i in range(N_space):
+        for j in range(N_space):
+            # West boundary
+            if i == 0:
+                A[at(i, j), :] = 0
+                A[at(i, j), at(i, j)] =  -ay
+                A[at(i, j), at(i+1, j)] = ay
+            # East boundary
+            if i == N_space-1:
+                A[at(i, j), :] = 0
+                A[at(i, j), at(i, j)] =  -ay
+                A[at(i, j), at(i-1, j)] = ay
+            # North boundary
+            if j == 0:
+                A[at(i, j), :] = 0
+                A[at(i, j), at(i, j)] =  -ax
+                A[at(i, j), at(i, j+1)] = ax
+            # South boundary
+            if j == N_space-1:
+                A[at(i, j), :] = 0
+                A[at(i, j), at(i, j)] =  -ax
+                A[at(i, j), at(i, j-1)] = ax
 
-    return A.tocsc()
-
+    return A.tocsc() * N_space**2
 
 
 if __name__ == "__main__":
@@ -75,12 +66,13 @@ if __name__ == "__main__":
     # gv = np.zeros(Nx*Ny)
     # gv[Nx*Ny//2] = 100
     gv = np.zeros((Nx, Ny))
-    gv[Nx//2, Ny//2] = 1
     gv[:, 0] = 1
     gv[:, -1] = 1
     gv[0, :] = 1
     gv[-1, :] = 1
-    gv = gv.flatten()
+    init_mass = np.sum(gv)
+    gv[1, Ny//2] = 1
+    gv = gv.flatten("F")
     A = build_diffusion_matrix(Nx, Ny, dt)
     I = sp.eye(Nx*Ny)
 
@@ -114,13 +106,17 @@ if __name__ == "__main__":
         ax.clear()
         ax.set_title(f"t = {i * dt:3f}")
         # ax.plot_trisurf(rng, rng, gvs[i, :])
-        ax.imshow(gvs[i, :].reshape((Nx, Ny)))
+        ax.imshow(gvs[i, :].reshape((Nx, Ny))[1:-1, 1:-1])
 
     maxvals = []
+    mass_sum = []
     for i in range(timesteps):
         maxvals.append(np.max(gvs[i, :]))
+        mass_sum.append(np.sum(gvs[i, :]))
 
-    print(maxvals)
+
+    print(f"Max value: {maxvals[-1]:.3f}")
+    print(f"Balance:  {mass_sum[-1]-init_mass:.3f}")
     
     anim = FuncAnimation(fig, animate, timesteps, interval=10)
     plt.show()
