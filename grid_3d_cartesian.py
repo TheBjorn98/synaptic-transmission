@@ -34,32 +34,32 @@ def build_diffusion_matrix(N, alphas):
     for i in range(N):
         for j in range(N):
             for k in range(N):
-                if i == 0:
+                if i == 0:  # Neumann, z
                     A[at(i, j, k), :] = 0
                     A[at(i, j, k), at(i, j, k)] =  -az
                     A[at(i, j, k), at(i+1, j, k)] = az
-                if j == 0:
-                    A[at(i, j, k), :] = 0
-                    A[at(i, j, k), at(i, j, k)] =  -ay
-                    A[at(i, j, k), at(i, j+1, k)] = ay
-                if k == 0:
-                    A[at(i, j, k), :] = 0
-                    A[at(i, j, k), at(i, j, k)] =  -ax
-                    A[at(i, j, k), at(i, j, k+1)] = ax
-                if i == N-1:
+                # if j == 0:  # Neumann, y
+                #     A[at(i, j, k), :] = 0
+                #     A[at(i, j, k), at(i, j, k)] =  -ay
+                #     A[at(i, j, k), at(i, j+1, k)] = ay
+                # if k == 0:  # Neumann, x
+                #     A[at(i, j, k), :] = 0
+                #     A[at(i, j, k), at(i, j, k)] =  -ax
+                #     A[at(i, j, k), at(i, j, k+1)] = ax
+                if i == N-1:  # Neumann, z
                     A[at(i, j, k), :] = 0
                     A[at(i, j, k), at(i, j, k)] =  -az
                     A[at(i, j, k), at(i-1, j, k)] = az
-                if j == N-1:
-                    A[at(i, j, k), :] = 0
-                    A[at(i, j, k), at(i, j, k)] =  -ay
-                    A[at(i, j, k), at(i, j-1, k)] = ay
-                if k == N-1:
-                    A[at(i, j, k), :] = 0
-                    A[at(i, j, k), at(i, j, k)] =  -ax
-                    A[at(i, j, k), at(i, j, k-1)] = ax
+                # if j == N-1:  # Neumann, y
+                #     A[at(i, j, k), :] = 0
+                #     A[at(i, j, k), at(i, j, k)] =  -ay
+                #     A[at(i, j, k), at(i, j-1, k)] = ay
+                # if k == N-1:  # Neumann, x
+                #     A[at(i, j, k), :] = 0
+                #     A[at(i, j, k), at(i, j, k)] =  -ax
+                #     A[at(i, j, k), at(i, j, k-1)] = ax
 
-    return (A.tocsc() * N**3).T
+    return (A.tocsc() * N**2).T
 
 
 def update_diffusion(left_scheme_mx, right_scheme_mx, grid_vector):
@@ -81,29 +81,30 @@ def update_diffusion(left_scheme_mx, right_scheme_mx, grid_vector):
         return spla.cg(left_scheme_mx, tmp)[0]
 
 
-def iterate_system_cn(N_space, N_time, dt, initial_gv, alphas):
-    t0 = time()
-    A = build_diffusion_matrix(N_space, alphas)
-    I = sp.eye(N_space**3)
-    CN_left = (I - dt * A / 2)
-    CN_right = (I + dt * A / 2)
-    t1 = time()
+### Deprecated, does not include reaction term
+# def iterate_system_cn(N_space, N_time, dt, initial_gv, alphas):
+#     t0 = time()
+#     A = build_diffusion_matrix(N_space, alphas)
+#     I = sp.eye(N_space**3)
+#     CN_left = (I - dt * A / 2)
+#     CN_right = (I + dt * A / 2)
+#     t1 = time()
 
-    t2 = time()
-    gvs = np.zeros((N_time, initial_gv.shape[0]))
-    gvs[0, :] = initial_gv
-    t3 = time()
+#     t2 = time()
+#     gvs = np.zeros((N_time, initial_gv.shape[0]))
+#     gvs[0, :] = initial_gv
+#     t3 = time()
     
-    for i in range(1, N_time):
-        gvs[i, :] = update_diffusion(CN_left, CN_right, gvs[i-1, :])
+#     for i in range(1, N_time):
+#         gvs[i, :] = update_diffusion(CN_left, CN_right, gvs[i-1, :])
     
-    t4 = time()
+#     t4 = time()
 
-    print(f"Building matrix: {t1-t0:.3f} sec.")
-    print(f"Initializing problem: {t3-t2:.3f} sec.")
-    print(f"Interation: {t4-t3:.3f} sec.")
+#     print(f"Building matrix: {t1-t0:.3f} sec.")
+#     print(f"Initializing problem: {t3-t2:.3f} sec.")
+#     print(f"Interation: {t4-t3:.3f} sec.")
 
-    return gvs
+#     return gvs
 
 def iterate_system_bw_euler(N_space, N_time, dt, initial_state, alphas, reaction_ode):
     n_init, r_init, c_init = initial_state
@@ -129,8 +130,6 @@ def iterate_system_bw_euler(N_space, N_time, dt, initial_state, alphas, reaction
             temp_state[N_space**3-N_space**2:], r_vecs[i-1, :], c_vecs[i-1, :],
             dt, reaction_ode
         )
-
-        print(np.sum([n_terminal]))
 
         temp_state[N_space**3 - N_space**2:] = n_terminal[:]
         n_vecs[i, :] = temp_state
