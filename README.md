@@ -3,69 +3,91 @@
 A numerical project in mathematical modelling aiming to simulate a simplified model of synaptic informational transmission.
 
 The aim of the code is to provide a 3D numerical scheme for the synaptic cleft which couples neurons.
-When neurons coomunicate through axons and dendrites, there is an electrical signal which is passed to the axon terminal.
+When neurons communicate through axons and dendrites, there is an electrical signal which is passed to the axon terminal.
 Between the pre-synaptic and post-synaptic axon terminals is a gap which effectively insulates the two terminals electrically.
 In order to send a signal to the other terminal, neurotransmitters are released on the pre-synaptic terminal which diffuse towards the post-synaptic terminal.
 At the post-synaptic terminal, neurotransmitters activate receptors which trigger a signal travelling up the post-synaptic axon terminal to the other neuron.
 
-The numerical model therefore includes:
+The travelling from pre- to post-synapse happens through a diffusion process, while the activation is modeled with a chemical reaction equation.
 
-1. A release-scheme for neurotransmitters inputted as an initial neurotransmitter distribution on the pre-synaptic terminal
-2. Three dimensional (radial, tangential, longitudinal) diffusion of neurotransmitters in the synaptic cleft
-3. Chemical equilibrium reactions acting as post-synaptic activation
+## How to run this project
+
+Ensure that the packages `numpy`, `scipy` and `matplotlib` are installed.
+Then consider the following files:
+
+* `generate_plots.py` contains functions for plotting some potentially interesting results from the simulation.
+	* If the code runs slowly, pass a smaller `N` as argument to these functions, this will reduce the spatial refinement.
+* `grid_3d_cartesian.py` contains functions to build system matrices and iterate the time dependent system.
+	* `build_diffusion_matrix` constructs a matrix of the kind "A" as seen in the backward Euler equation further down.
+	* `iterate_system_bw_euler` performs timestepping of the system updating both diffusion and reaction terms using backward Euler.
+	* `update_diffusion` performs one step of matrix inversion to arrive at the next vector of concentrations.
+* `reaction.py` contains functionality for creating an ode-function and updating the reaction term.
+	* `make_reaction_ode` takes a forward and backward reaction coefficient and wraps a function with these values as hidden contants.
+	* `update_reaction` takes the state of the system and performs an iteration of RK4 to devise the next state of the system after the reaction has taken place.
+* `grid_2d_cartesian.py` contains code for performing this simulation in 2D, making use of rotational symmetry.
+	* The code does not work at the moment and needs fixing
+* `grid_3d_cylindrical.py` contains defunct code attempting to solve the problem using cylinder coordinates instead of Cartesian.
+	* This code has been abandoned, but advances in the other files may bear fruits for this code in the future.
+* `multipleSynapses` contains files for numerical methods on the 2D geometric reduction of the intercellular space
+	* `simulation.py` runs the multiple synapse simulation
+	* `simulationUtils.py` contains helper functions to facilitate this simulation
+	* This code is not finished, but a working idea is in place
+
+Tl;dr: Run `generate_plots.py` to see some results.
 
 ## Modelling equations
 
-For the concentration of neurotransmitters, denoted $N$, the following is the mathematical model:
-
-**The domain representing the synaptic cleft**
-
-Cylinder:
-* $0 < r < R$
-* $0 < \theta < 2\pi$
-* $0 < z < L$
-* Pre-synaptic terminal: $z = 0$
-* Post-synaptic terminal: $z = L$
-
-**Diffusion between the terminals**
+The chemical reaction taking place is: $R + N \iff C$, this chemical reaction can be written as:
 
 $$
-N_t = D \nabla^2 N = D \left[\frac1r \partial_r \left( r \partial_r \right) + \frac1{r^2} \partial_\theta^2 + \partial_z^2\right] N
+\partial_t N = - k_1 R N + k_{-1} C
 $$
 
-**Reaction at the post-synaptic terminal**
-
-Chemical reaction: $R + N \iff C$
-
-Reaction equation ($R, N, C$ are concentrations):
+Together with the diffusion equation:
 
 $$
-N_t = -k_1 R N + k_{-1} C
+\partial_t N = \nabla^2 N
 $$
 
-## Numerical scheme
-
-We set the concentration:
+this system becomes:
 
 $$
-N(r_i, \theta_j, z_k, t_n) = N_{ijk}^n
+\partial_t N = \nabla^2 - k_1 R N + k_{-1} C
 $$
 
-Difference equations for all differential operators as follows:
+Which is solved for an approximation to the function $N(t, x, y, z)$ marking the spatial concentration of neurotransmitters and how it changes over time.
 
-* $\delta_z^2(N_{ijk}^n) = \frac{N_{i,j,k-1}^n - 2 N_{i,j,k}^n + N_{i,j,k+1}^n}{\Delta z^2}$
-* $\delta_\theta^2(N_{ijk}^n) = \frac{N_{i,j-1,k}^n - 2 N_{i,j,k}^n + N_{i,j+1,k}^n}{\Delta \theta^2}$
-* $\delta_r^2(N_{ijk}^n) = \frac{1}{r_i \Delta r^2} \left[ r_{i-\frac12}\left(N_{i-1,j,k}^n - N_{i,j,k}^n\right) + r_{i+\frac12} \left( N_{i+1,j,k}^n - N_{i,j,k}^n\right)\right]$
+## Setup
 
-* $\delta_t(N_{ijk}^n) = \frac{N_{i,j,k}^{n+1} - N_{i,j,k}^n}{\Delta t}$
-
-The diffusion 
-
-The Crank-Nicholson scheme for the diffusion part of the equation becomes
+We endeavor to solve this equation on the unit cube with directionally dependent coefficients of diffusion.
+As initial conditions we have the neurotransmitters as a scaled point source and the receptors as evenly spread on the other side
 
 $$
-\delta_t(N_{i,j,k}^n) =
-    \frac{\delta_r^2(N_{i,j,k}^{n+1}) + \delta_\theta^2(N_{i,j,k}^{n+1}) + \delta_z^2(N_{i,j,k}^{n+1})}2
-    + \frac{\delta_r^2(N_{i,j,k}^n) + \delta_\theta^2(N_{i,j,k}^n) + \delta_z^2(N_{i,j,k}^n)}2
+N(0, .5, .5, 0) = 1, R(0, x, y, 1) = \Tilde{R0}
 $$
 
+As boundary conditions we have Dirichlet conditions at the faces in the x- and y-directions and no-flux Neumann conditions in the z-directions:
+
+$$
+N(t, 0, y, z) = N(t, 1, y, z) = N(t, x, 0, z) = N(t, x, 1, z) = 0
+$$
+
+$$
+\partial_z N = 0 \text{ for } z=0, z=1
+$$
+
+## Discretization and scheme
+
+We use a second order central difference for the terms in the Laplace operator, while we use a backward difference for the time.
+
+$$
+\partial_{xx}N \approx \frac{N_{i-1, j, k}^n - 2 N_{i, j, k}^n + N_{i+1, j, k}^n}{\Delta x^2} \quad \partial_t N \approx \frac{N_{i,j,k}^n - N_{i,j,k}^{n-1}}{\Delta t}
+$$
+
+This results in a fully implicit backward Euler scheme in the diffusion part of the equation.
+
+$$
+(I - \Delta t A) N^{n+1} = N^{n}
+$$
+
+This system is solved using SciPy.
