@@ -27,6 +27,8 @@ def setup_ic(N_space, R0, N0):
 
     return n_init, r_init, c_init
 
+t_scale = 281
+
 def plot_terminal_concentration(N, divide=True, save=False):
     N0 = 5000
     Lx = Ly = .22e-6
@@ -47,7 +49,7 @@ def plot_terminal_concentration(N, divide=True, save=False):
     gvs, rs, cs = iterate_system_bw_euler(N, N_time, dt, i_state, alphas, reaction)
 
     ### Plotting concentrations at the post-synaptic terminal
-    ts = np.linspace(0, Tf, num=N_time) * 28.125  # 28.125 ns
+    ts = np.linspace(0, Tf, num=N_time) * t_scale  # 28.125 ns
     rvals = np.array([np.sum(rs[i, :]) for i in range(N_time)])
     cvals = np.array([np.sum(cs[i, :]) for i in range(N_time)])
     nvals = np.array([np.sum(gvs[i, N**3 - N**2:]) for i in range(N_time)])
@@ -96,7 +98,7 @@ def plot_concentration_along_z(N, save=False):
         z_dist.append([np.sum(g[:, :, j]) for j in range(N)])
     ts = [10, 50, 100, 250, 500]
     for t in ts:
-        plt.plot(zs, z_dist[t], label=f"t = {28.125 * t / N_time:.2f} ns")
+        plt.plot(zs, z_dist[t], label=f"t = {t_scale * t / N_time:.2f} ns")
     plt.axhline(R0/N0, linestyle="--", color="k", linewidth=1, label="R0/N0")
     plt.xlabel("Distance across the cleft, z, [nm]")
     plt.ylabel("Concentration of N, relative to N0")
@@ -130,7 +132,7 @@ def plot_terminal_spread(N, save=False):
     ts = [100, 200, 300, 400]
     for (i, t) in enumerate(ts):
         axs[i].imshow(gvs[t, :].reshape((N, N, N))[:, :, -1], vmax=.0005, vmin=0)
-        axs[i].set_title(f"Time: {t * 28.125 / N_time:.2f} ns")
+        axs[i].set_title(f"Time: {t * t_scale / N_time:.2f} ns")
 
     if save:
         plt.savefig("figures/terminal_spread.pdf")

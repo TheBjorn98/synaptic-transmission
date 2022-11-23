@@ -35,6 +35,33 @@ Then consider the following files:
 
 Tl;dr: Run `generate_plots.py` to see some results.
 
+### Followup question 2: Transporters
+
+Implementation of transporters into the model is not something which was implemented.
+The necessary work to implement this is to specify a separate reaction ode on the sides of the cube.
+Currently, there is a receptor reaction ode acting on the bottom of the cube, and if the vector of neurotransmitters `n_vec` is sliced properly,
+it is possible to add reaction odes taking the north, south, east and west walls of the cube as the vectors to act on.
+
+A sketch of the implementation is as follows:
+* Slice the vector correctly for all walls of the cube, alias these to slice-objects which may be called easily by the numpy code
+* Store all the wall-slice objects in an array
+* Create the corresponding transporter reaction odes (possibly in multiple stages) and store them in an array in the same order as the slice objects
+* Initialize transporter-vectors (`t_vec`) and (transporter-neurotransmitter)-vectors (`p_vec`) for all walls
+* When updating the reaction term:
+	* For each pair of `slice` and `reaction ode` in the arrays
+	* `update_reaction` used with `n_vec[slice]`, `reaction_ode` and the appropriate `t_vec`-s and `p_vecs`
+	* Update the entire `n_vec` to reflect the result of these odes
+
+### Followup question 3: Flow
+
+Implementation of the flow in the 3D model would be more difficult.
+One way to do it may be to modify the directional diffusion coefficients and add more coefficients.
+At this moment the code uses the same coefficient in positive directions of `x` and `y`,
+but if there were different coefficients, `(ax_pos, ax_neg)`, scaling diffusion in the positive and negative `x`-direction,
+we may simulate flow going in the transverse direction.
+
+Which values these different coefficients should take is another matter, and is difficult to estimate without doing more research.
+
 ## Modelling equations
 
 The chemical reaction taking place is: $R + N \iff C$, this chemical reaction can be written as:
