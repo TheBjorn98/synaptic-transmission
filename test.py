@@ -37,8 +37,8 @@ if __name__ == "__main__":
     k_on = 4e6
     k_off = 5
     pi_1 = k_on * T * R0 
-    # pi_2 = k_off * T * R0 / N0  # Dividing by N0
-    pi_2 = k_off * T * R0  # Not dividing by N0
+    pi_2 = k_off * T * R0 / N0  # Dividing by N0
+    # pi_2 = k_off * T * R0  # Not dividing by N0
     reaction = make_reaction_ode(pi_1, pi_2)
     # reaction = make_reaction_ode(1, 1)
 
