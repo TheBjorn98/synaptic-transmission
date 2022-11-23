@@ -28,12 +28,15 @@ Then consider the following files:
 	* The code does not work at the moment and needs fixing
 * `grid_3d_cylindrical.py` contains defunct code attempting to solve the problem using cylinder coordinates instead of Cartesian.
 	* This code has been abandoned, but advances in the other files may bear fruits for this code in the future.
-* `multipleSynapses` contains files for numerical methods on the 2D geometric reduction of the intercellular space
+* `multipleSynapses/` contains files for numerical methods on the 2D geometric reduction of the intercellular space
 	* `simulation.py` runs the multiple synapse simulation
 	* `simulationUtils.py` contains helper functions to facilitate this simulation
 	* This code is not finished, but a working idea is in place
 
-Tl;dr: Run `generate_plots.py` to see some results.
+In summary: 
+* Run `generate_plots.py` to see some results.
+* Main question is numerically implemented in `grid_3d_cartesian.py` and `reaction.py`
+* Followup question 1 numerically implemented (though not complete) in files in `multipleSynapses/`-folder
 
 ### Followup question 2: Transporters
 

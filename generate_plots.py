@@ -37,8 +37,8 @@ def plot_terminal_concentration(N, divide=True, save=False):
     D = 8e-7
     alphas = ax, ay, az = setup_alphas(Lx, Ly, Lz, D, N)
     T = 1 / N
-    Tf = 1
-    N_time = 1000
+    Tf = 3
+    N_time = 3000
     dt = Tf / N_time
     ### Setup for the reaction
     k_on = 4e6
@@ -65,7 +65,7 @@ def plot_terminal_concentration(N, divide=True, save=False):
         plt.title("Dividing by N0")
     else:
         plt.title("Not dividing by N0")
-    plt.legend()
+    plt.legend(loc=1)
     if save:
         plt.savefig(f"figures/terminal_concentration_{1 if divide else 0}.pdf")
     else:
