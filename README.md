@@ -12,6 +12,11 @@ The travelling from pre- to post-synapse happens through a diffusion process, wh
 
 ## How to run this project
 
+> Summary: 
+> * Run `generate_plots.py` to see some results.
+> * Main question is numerically implemented in `grid_3d_cartesian.py` and `reaction.py`
+> * Followup question 1 numerically implemented (though not complete) in files in `multipleSynapses/`-folder
+
 Ensure that the packages `numpy`, `scipy` and `matplotlib` are installed.
 Then consider the following files:
 
@@ -32,11 +37,6 @@ Then consider the following files:
 	* `simulation.py` runs the multiple synapse simulation
 	* `simulationUtils.py` contains helper functions to facilitate this simulation
 	* This code is not finished, but a working idea is in place
-
-In summary: 
-* Run `generate_plots.py` to see some results.
-* Main question is numerically implemented in `grid_3d_cartesian.py` and `reaction.py`
-* Followup question 1 numerically implemented (though not complete) in files in `multipleSynapses/`-folder
 
 ### Followup question 2: Transporters
 
